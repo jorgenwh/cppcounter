@@ -1,3 +1,5 @@
+#include <thread>
+
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
@@ -17,20 +19,28 @@ PYBIND11_MODULE(cppcounter_C, m) {
       const uint32_t size = keys.size();
       return new HashTable(data, size, capacity);
     }))
-    .def("count", [](HashTable &self, py::array_t<uint64_t> &keys) {
+    .def("count", [](HashTable &self, py::array_t<uint64_t> &keys, uint32_t threads) {
       const uint64_t *data = (uint64_t *)keys.data();
       const uint32_t size = keys.size();
-      self.count(data, size);
+      uint32_t max_threads = std::thread::hardware_concurrency();
+      if (threads <= 0 || threads > max_threads) {
+        threads = max_threads;
+      }
+      self.count(data, size, threads);
     })
-    .def("get", [](HashTable &self, py::array_t<uint64_t> &keys) {
+    .def("get", [](HashTable &self, py::array_t<uint64_t> &keys, uint32_t threads) {
       py::buffer_info buf = keys.request();
       const uint64_t *data = (uint64_t *)keys.data();
       const uint32_t size = keys.size();
+      uint32_t max_threads = std::thread::hardware_concurrency();
+      if (threads <= 0 || threads > max_threads) {
+        threads = max_threads;
+      }
 
       auto ret = py::array_t<uint32_t>(buf.size);
       uint32_t *counts_data = ret.mutable_data();
 
-      self.get(data, counts_data, size);
+      self.get(data, counts_data, size, threads);
 
       return ret;
     })

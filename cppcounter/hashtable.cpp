@@ -2,6 +2,9 @@
 #include <sstream>
 #include <string>
 #include <string.h>
+#include <vector>
+#include <thread>
+#include <mutex>
 #include <inttypes.h>
 
 #include "hashtable.h"
@@ -19,11 +22,11 @@ HashTable::HashTable(const uint64_t *keys, const uint32_t size, const uint32_t c
     uint64_t hash = key % capacity_m;
 
     while (true) {
-      uint64_t cur = table_m.keys[i]; 
+      uint64_t cur = table_m.keys[hash]; 
 
       if (cur == kEmpty || cur == key) {
-        table_m.keys[i] = key;
-        table_m.values[i] = 0;
+        table_m.keys[hash] = key;
+        table_m.values[hash] = 0;
         break;
       }
       hash = (hash + 1) % capacity_m;
@@ -31,36 +34,53 @@ HashTable::HashTable(const uint64_t *keys, const uint32_t size, const uint32_t c
   }
 }
 
-void HashTable::count(const uint64_t *keys, const uint32_t size) {
-  for (int i = 0; i < size; i++) {
+void HashTable::counting_worker(const uint64_t *keys, const uint32_t size, 
+    const uint32_t offset, const uint32_t num_threads) {
+  for (uint32_t i = offset; i < size; i+=num_threads) {
     uint64_t key = keys[i];
     uint64_t hash = key % capacity_m;
 
     while (true) {
-      uint64_t cur = table_m.keys[i]; 
-
+      uint64_t cur = table_m.keys[hash];
+      
       if (cur == key) {
-        table_m.values[i]++;
+        { 
+          std::lock_guard<std::mutex> lock(mu_m);
+          table_m.values[hash]++;
+        }
         break;
       }
-      if (cur == kEmpty) {
-        break;
-      }
+      if (cur == kEmpty) { break; }
       hash = (hash + 1) % capacity_m;
     }
   }
 }
 
-void HashTable::get(const uint64_t *keys, uint32_t *counts, const uint32_t size) {
+void HashTable::count(
+    const uint64_t *keys, const uint32_t size, const uint32_t num_threads) {
+  std::vector<std::thread> threads(num_threads);
+  uint32_t offsets[num_threads];
+  for (uint32_t i = 0; i < num_threads; i++) {
+    offsets[i] = i;
+    threads[i] = std::thread(&HashTable::counting_worker, this, 
+        keys, size, offsets[i], num_threads);
+  }
+  for (auto &thread : threads) {
+    if (thread.joinable()) { thread.join(); }
+  }
+}
+
+void HashTable::get(
+    const uint64_t *keys, uint32_t *counts, const uint32_t size, const uint32_t num_threads) {
   for (int i = 0; i < size; i++) {
     uint64_t key = keys[i];
     uint64_t hash = key % capacity_m;
 
     while (true) {
-      uint64_t cur = table_m.keys[i]; 
+      uint64_t cur = table_m.keys[hash]; 
 
       if (cur == key) {
-        counts[i] = table_m.values[i];
+        counts[i] = table_m.values[hash];
         break;
       }
       if (cur == kEmpty) {

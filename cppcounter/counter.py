@@ -15,11 +15,11 @@ class Counter(HashTable):
 
         super().__init__(keys, capacity)
 
-    def count(self, keys):
+    def count(self, keys, threads: int = 0):
         assert isinstance(keys, np.ndarray), "Keys must be of type numpy.ndarray"
-        super().count(keys)
+        super().count(keys, threads)
 
-    def __getitem__(self, keys):
+    def __getitem__(self, keys, threads: int = 0):
         assert isinstance(keys, np.ndarray), "Keys must be of type numpy.ndarray"
         return super().get(keys)
 

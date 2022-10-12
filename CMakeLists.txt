@@ -3,7 +3,7 @@ project(cppcounter_C LANGUAGES CXX)
 
 find_package(pybind11 REQUIRED)
 
-set(CMAKE_CXX_FLAGS "-O3")
+set(CMAKE_CXX_FLAGS "-O3 -pthread")
 
 set(SOURCE_DIR "cppcounter")
 include_directories(${SOURCE_DIR})
